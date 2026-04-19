@@ -1,31 +1,51 @@
-# SQL Study — 환경 구축
+# SQL Study
 
-PostgreSQL 16 + Pagila 샘플 DB를 Docker로 띄우는 학습용 환경.
+Pagila 샘플 DB 위에서 SQL을 공부하면서, 학습 데이터를 JSONL로 쌓아가는 개인 프로젝트.
+목표: SQL 숙련 → 학습 데이터 분석 → 복습 알고리즘 프로토타입.
 
-## 사전 요구사항
-- Docker Desktop (Compose v2 포함)
-- DataGrip (또는 psql, DBeaver 등 아무 SQL 클라이언트)
+## 디렉토리 구조
 
-## 구조
 ```
 sql-coding-test/
-├── docker-compose.yml        PostgreSQL 정의
-├── init/                     최초 기동 시 자동 실행되는 SQL
-│   ├── 01-pagila-schema.sql  테이블 정의
-│   └── 02-pagila-data.sql    데이터 적재
-├── index.md                  학습 방법론
+├── docs/                       학습 문서
+│   ├── methodology.md          학습 방법론 (원칙·커리큘럼·플랫폼)
+│   └── checkpoints.md          점검 트리거 규칙
+├── infra/                      실행 환경
+│   ├── docker-compose.yml      PostgreSQL 16 + Pagila
+│   └── init/                   (gitignore) Pagila 덤프, bootstrap으로 재생
+├── scripts/
+│   ├── log.py                  학습 로그 기록·조회 CLI
+│   └── bootstrap.sh            Pagila SQL 다운로드 (최초 1회)
+├── logs/
+│   └── sessions.jsonl          학습 이벤트 로그
+├── practice/                   날짜별 쿼리 풀이 기록
+│   └── YYYY-MM-DD.sql
+├── pyproject.toml              uv 프로젝트
+├── .python-version             3.12
 └── README.md
 ```
 
-## 실행
+## 요구사항
+- Docker Desktop
+- [uv](https://docs.astral.sh/uv/) (Python 환경)
+- DataGrip (또는 아무 SQL 클라이언트)
+- Git Bash (bootstrap.sh 실행용, Windows 기준)
+
+## 최초 세팅
 
 ```bash
-docker compose up -d
+# 1. Pagila 덤프 다운로드
+bash scripts/bootstrap.sh
+
+# 2. PostgreSQL 기동
+docker compose -f infra/docker-compose.yml up -d
+
+# 3. 동작 확인
+docker exec sql-study-pg psql -U postgres -d pagila -c \
+  "SELECT COUNT(*) FROM actor;"   # 200 이어야 정상
 ```
 
-최초 기동 시 스키마·데이터가 자동 로드됩니다 (약 20~30초). 이후 기동은 수 초.
-
-## DataGrip 연결 정보
+## DataGrip 연결
 
 | 항목 | 값 |
 |------|-----|
@@ -35,61 +55,71 @@ docker compose up -d
 | User | `postgres` |
 | Password | `postgres` |
 
-DataGrip → `+` → **Data Source** → **PostgreSQL** → 위 정보 입력 → **Test Connection**.
+## 학습 로그 사용법
 
-드라이버가 없으면 DataGrip이 자동으로 다운로드 안내함.
+`scripts/log.py` — 학습 이벤트를 `logs/sessions.jsonl` 에 append.
 
-## 동작 확인 쿼리
+```bash
+# 문제 풀이 기록
+uv run scripts/log.py add \
+  --topic WHERE --pid p-007 --diff easy --result correct \
+  --problem "film 테이블에서 rental_rate > 3 필터" \
+  --time 45 --note ""
 
-```sql
--- 테이블 개수 (29개 나와야 정상)
-SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';
+# 누적 지표
+uv run scripts/log.py stats
 
--- 주요 테이블 로우 수
-SELECT 'actor' AS t, COUNT(*) FROM actor
-UNION ALL SELECT 'film', COUNT(*) FROM film
-UNION ALL SELECT 'customer', COUNT(*) FROM customer
-UNION ALL SELECT 'rental', COUNT(*) FROM rental;
+# 현재 세션 지표
+uv run scripts/log.py stats --session
+
+# 최근 엔트리
+uv run scripts/log.py tail -n 5
 ```
 
-**기대값**: actor 200 / film 1000 / customer 599 / rental 16044
+세션 구분은 자동 (직전 이벤트와 30분 이상 공백이면 새 세션).
+
+### 필드 스펙
+- `ts` (ISO 8601, KST)
+- `session_id` (`YYYY-MM-DD-NN`)
+- `topic` (SELECT, WHERE, JOIN...)
+- `problem_id` (`p-001`...)
+- `problem` (문제 설명)
+- `result` — `correct` / `wrong` / `partial` / `gave_up`
+- `difficulty` — `easy` / `medium` / `hard`
+- `time_sec` (선택)
+- `stuck_on` (막힌 지점 태그, 없으면 `null`)
+- `retry_of` (재도전이면 원 problem_id)
+- `note` (자유 텍스트)
+
+## 학습 흐름
+
+1. `docs/methodology.md` 원칙 확인
+2. 세션 시작 → 문제 풀이 (DataGrip + `practice/YYYY-MM-DD.sql`)
+3. 풀이마다 `log.py add`
+4. `docs/checkpoints.md` 트리거에 걸리면 점검
+5. 세션 종료 시 `log.py stats --session` 리포트
 
 ## 자주 쓰는 명령
 
 ```bash
-# 컨테이너 상태
-docker compose ps
+# 상태
+docker compose -f infra/docker-compose.yml ps
 
-# 로그 보기
+# 로그
 docker logs sql-study-pg
 
 # 정지 (데이터 보존)
-docker compose stop
+docker compose -f infra/docker-compose.yml stop
 
 # 재시작
-docker compose start
+docker compose -f infra/docker-compose.yml start
 
-# 완전 삭제 + 데이터 초기화 (처음부터 다시)
-docker compose down -v
+# 완전 초기화 (볼륨 삭제)
+docker compose -f infra/docker-compose.yml down -v
 ```
 
-## 주의
-
-- `docker-entrypoint-initdb.d`의 스크립트는 **볼륨이 비어있을 때만** 실행됨.
-- 스키마를 다시 로드하려면 `docker compose down -v`로 볼륨을 지워야 함.
-- 포트 `5432`가 이미 사용 중이면 compose의 `ports` 매핑을 `5433:5432` 등으로 변경.
-
-## 샘플 DB 정보
-
-- **Pagila**: MySQL Sakila의 PostgreSQL 포팅. DVD 대여점 도메인.
-- 유지보수: Devrim Gündüz (PostgreSQL 공식 RPM 메인테이너)
-- 라이선스: PostgreSQL License
-- 저장소: https://github.com/devrimgunduz/pagila
-
-### 주요 테이블 (22개 기본 + 파티션)
-
-| 도메인 | 테이블 |
-|--------|--------|
-| 영화 | `film`, `film_actor`, `film_category`, `actor`, `category`, `language`, `inventory` |
-| 사람 | `customer`, `staff`, `address`, `city`, `country` |
-| 거래 | `rental`, `payment` (월별 파티션), `store` |
+## 샘플 DB: Pagila
+- MySQL Sakila 의 PostgreSQL 포팅 (DVD 대여점 도메인)
+- 유지: Devrim Gündüz (PostgreSQL 공식 RPM 메인테이너)
+- License: PostgreSQL License
+- https://github.com/devrimgunduz/pagila
