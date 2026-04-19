@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 샘플 DB 덤프 — scripts/bootstrap.sh 로 재다운로드
+infra/init/*.sql
+
+# Docker 로컬 볼륨 (호스트 마운트로 쓸 경우 대비)
+infra/pgdata/
