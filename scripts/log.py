@@ -74,7 +74,12 @@ def cmd_add(args: argparse.Namespace) -> None:
         "note": args.note or "",
     }
 
-    with LOG_PATH.open("a", encoding="utf-8") as f:
+    with LOG_PATH.open("a+", encoding="utf-8") as f:
+        f.seek(0, 2)
+        if f.tell() > 0:
+            f.seek(f.tell() - 1)
+            if f.read(1) != "\n":
+                f.write("\n")
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     print(f"logged [{entry['session_id']}] {entry['problem_id']} -> {entry['result']}")
 
