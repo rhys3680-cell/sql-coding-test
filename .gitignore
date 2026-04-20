@@ -18,3 +18,6 @@ infra/init/*.sql
 
 # Docker 로컬 볼륨 (호스트 마운트로 쓸 경우 대비)
 infra/pgdata/
+
+# 풀이용 스크래치 패드 (휘발성)
+index.sql

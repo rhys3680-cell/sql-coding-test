@@ -18,8 +18,7 @@ sql-coding-test/
 │   └── bootstrap.sh            Pagila SQL 다운로드 (최초 1회)
 ├── logs/
 │   └── sessions.jsonl          학습 이벤트 로그
-├── practice/                   날짜별 쿼리 풀이 기록
-│   └── YYYY-MM-DD.sql
+├── index.sql                   (gitignore) 풀이용 스크래치 패드
 ├── pyproject.toml              uv 프로젝트
 ├── .python-version             3.12
 └── README.md
@@ -94,7 +93,7 @@ uv run scripts/log.py tail -n 5
 ## 학습 흐름
 
 1. `docs/methodology.md` 원칙 확인
-2. 세션 시작 → 문제 풀이 (DataGrip + `practice/YYYY-MM-DD.sql`)
+2. 세션 시작 → 문제 풀이 (DataGrip의 `index.sql` 스크래치 패드에서 작업, 문제 끝나면 비움)
 3. 풀이마다 `log.py add`
 4. `docs/checkpoints.md` 트리거에 걸리면 점검
 5. 세션 종료 시 `log.py stats --session` 리포트
