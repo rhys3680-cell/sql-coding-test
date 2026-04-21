@@ -21,3 +21,6 @@ infra/pgdata/
 
 # 풀이용 스크래치 패드 (휘발성)
 index.sql
+
+# SQLTools 자동 생성 세션 파일
+*.session.sql
